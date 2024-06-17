@@ -6,26 +6,35 @@ public class RoomTransition : MonoBehaviour
     public Transform targetRoom; // The position where the player should appear in the next room
     public float transitionDelay = 1f; // Time interval before transitioning the player
     private bool isTransitioning = false;
-    private PlayerController playerController; // Reference to the player's control script
+    private PlayerMovement playerMovement; // Reference to the player's movement script
 
     void OnTriggerEnter2D(Collider2D other)
     {
+        Debug.Log($"Triggered by: {other.gameObject.name}");
+
         if (other.CompareTag("Player") && !isTransitioning)
         {
-            playerController = other.GetComponent<PlayerController>();
-            StartCoroutine(TransitionRoom(other.gameObject));
+            playerMovement = other.GetComponent<PlayerMovement>();
+
+            if (playerMovement != null)
+            {
+                Debug.Log("PlayerMovement found. Starting transition.");
+                StartCoroutine(TransitionRoom(other.gameObject));
+            }
+            else
+            {
+                Debug.LogWarning("PlayerMovement not found on the Player object.");
+                DebugComponents(other.gameObject);
+            }
         }
     }
 
-    IEnumerator TransitionRoom(GameObject player)
+    IEnumerator TransitionRoom(GameObject player) 
     {
         isTransitioning = true;
 
-        // Disable player control
-        if (playerController != null)
-        {
-            playerController.enabled = false;
-        }
+        // Disable player movement input
+        playerMovement.DisableInput();
 
         // Start fade out
         FadeController.Instance.FadeOut();
@@ -36,8 +45,11 @@ public class RoomTransition : MonoBehaviour
         // Move the player to the target room position
         player.transform.position = targetRoom.position;
 
+        // Ensure proper wait times
+        float remainingFadeTime = Mathf.Max(0, FadeController.Instance.fadeDuration - transitionDelay);
+
         // Wait for the fade out to complete
-        yield return new WaitForSeconds(FadeController.Instance.fadeDuration - transitionDelay);
+        yield return new WaitForSeconds(remainingFadeTime);
 
         // Start fade in
         FadeController.Instance.FadeIn();
@@ -45,12 +57,18 @@ public class RoomTransition : MonoBehaviour
         // Wait for the fade in to complete
         yield return new WaitForSeconds(FadeController.Instance.fadeDuration);
 
-        // Re-enable player control
-        if (playerController != null)
-        {
-            playerController.enabled = true;
-        }
+        // Re-enable player movement input
+        playerMovement.EnableInput();
 
         isTransitioning = false;
+    }
+
+    void DebugComponents(GameObject obj)
+    {
+        Debug.Log($"Components on {obj.name}:");
+        foreach (var component in obj.GetComponents<Component>())
+        {
+            Debug.Log(component.GetType());
+        }
     }
 }
